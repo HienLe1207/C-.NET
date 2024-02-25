@@ -1,86 +1,57 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using MongoDB.Driver;
 using Phonestore.Models;
 
 namespace Phonestore.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class PhoneController : ControllerBase
+    public class Phone_Controller : ControllerBase
     {
-        private static List<Phone> _phones = new List<Phone>();
-
-        [HttpGet("getAllPhone")]
-        public ActionResult<List<Phone>> GetPhones()
+        private readonly IConfiguration _configuration;
+        public Phone_Controller(IConfiguration configguration)
         {
-            return _phones;
+            _configuration = configguration;
         }
 
-        [HttpPost("save")]
-        public ActionResult<string> SavePhone([FromBody] Phone phone)
+        [HttpGet]
+        public JsonResult GetAllPhone()
         {
-            // Khởi tạo thời gian hiện tại
-            DateTime currentTime = DateTime.Now;
-
-            // Gán thời gian hiện tại vào thuộc tính PurchaseTime
-            phone.ThoiGianMuaHang = currentTime;
-
-            // Lưu vào cơ sở dữ liệu
-            _phones.Add(phone);
-
-            return Ok(phone.Id);
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var dbList = dbClient.GetDatabase("phonestore").GetCollection<Phone>("Phone").AsQueryable();
+            return new JsonResult(dbList);
         }
-
-        [HttpPut("edit/{id}")]
-        public ActionResult<Phone> UpdatePhone([FromBody] Phone updatedPhone, string id)
+        [HttpPost]
+        public JsonResult Post(Phone phone) 
+        { 
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            int LastMaPhone = dbClient.GetDatabase("phonestore").GetCollection<Phone>("Phone").AsQueryable().Count();
+            phone.MaPhone = LastMaPhone + 1;
+            dbClient.GetDatabase("phonestore").GetCollection<Phone>("Phone").InsertOne(phone);
+            return new JsonResult("Added Successfully");
+        }
+        [HttpPut]
+        public JsonResult Put(Phone updatePhone)
         {
-            // Lấy ra đối tượng cần cập nhật từ cơ sở dữ liệu
-            var existingPhone = _phones.Find(p => p.Id == id);
-
-            // Kiểm tra nếu đối tượng tồn tại
-            if (existingPhone != null)
-            {
-                // Cập nhật các trường, trừ trường thời gian
-                existingPhone.TenĐT = updatedPhone.TenĐT;
-                existingPhone.Loai = updatedPhone.Loai;
-                existingPhone.MauSac = updatedPhone.MauSac;
-                existingPhone.Ncc = updatedPhone.Ncc;
-                existingPhone.Gia = updatedPhone.Gia;
-            }
-
-            return Ok(existingPhone);
-
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var filter = Builders<Phone>.Filter.Eq("MaPhone", updatePhone.MaPhone);
+            var updateDefinition = Builders<Phone>.Update
+             .Set(phone => phone.TenPhone, updatePhone.TenPhone)
+             .Set(phone => phone.Loai, updatePhone.Loai)
+             .Set(phone => phone.MauSac, updatePhone.MauSac)
+             .Set(phone => phone.nhacungcap, updatePhone.nhacungcap);
+            dbClient.GetDatabase("phonestore").GetCollection<Phone>("Phone").UpdateOne(filter, updateDefinition);
+            return new JsonResult("Updated Successfully");
         }
-
-        [HttpDelete("delete/{id}")]
-        public ActionResult DeletePhone(string id)
+        [HttpDelete("{id}")]
+        public JsonResult Delete(int id)
         {
-            var phoneToRemove = _phones.Find(p => p.Id == id);
-            if (phoneToRemove != null)
-            {
-                _phones.Remove(phoneToRemove);
-                return NoContent();
-            }
-            return NotFound();
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var filter = Builders<Phone>.Filter.Eq("MaPhone", id);
+            dbClient.GetDatabase("phonestore").GetCollection<Phone>("Phone").DeleteOne(filter);
+            return new JsonResult("Deleted Successfully");
         }
-
-        [HttpGet("search/{id}")]
-        public ActionResult<Phone> GetPhone(string id)
-        {
-            var phone = _phones.Find(p => p.Id == id);
-            if (phone != null)
-            {
-                return Ok(phone);
-            }
-            return NotFound();
-        }
-
-        [HttpGet("searchByName/{name}")]
-        public ActionResult<List<Phone>> SearchPhones(string name)
-        {
-            var phones = _phones.FindAll(p => p.TenĐT.Contains(name));
-            return Ok(phones);
-        }
-
     }
 }

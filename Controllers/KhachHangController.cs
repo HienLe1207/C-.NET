@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using MongoDB.Driver;
 using Phonestore.Models;
 
@@ -7,84 +8,50 @@ namespace Phonestore.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class KhachHangController : ControllerBase
+    public class KhachHang_Controller : ControllerBase
     {
-        private readonly IMongoCollection<KhachHang> _khachHangCollection;
-
-        public KhachHangController(IMongoDatabase database)
+        private readonly IConfiguration _configuration;
+        public KhachHang_Controller (IConfiguration configguration)
         {
-            _khachHangCollection = database.GetCollection<KhachHang>("khachHangs");
+            _configuration= configguration;
         }
 
-        [HttpGet("getAll")]
-        public async Task<ActionResult<List<KhachHang>>> GetAllKhachHangs()
+        [HttpGet]
+        public JsonResult GetAllKhachHangs()
         {
-            var khachHangs = await _khachHangCollection.Find(_ => true).ToListAsync();
-            return Ok(khachHangs);
+           MongoClient dbClient=new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var dbList = dbClient.GetDatabase("phonestore").GetCollection<KhachHang>("KhachHang").AsQueryable();
+            return new JsonResult(dbList);
         }
-
-        [HttpPost("save")]
-        public async Task<ActionResult<KhachHang>> SaveKhachHang([FromBody] KhachHang khachHang)
+        [HttpPost]
+        public JsonResult Post(KhachHang KH)
         {
-            await _khachHangCollection.InsertOneAsync(khachHang);
-            return Ok(khachHang);
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            int LastMaKH = dbClient.GetDatabase("phonestore").GetCollection<KhachHang>("KhachHang").AsQueryable().Count();
+            KH.MaKH= LastMaKH+1;
+            dbClient.GetDatabase("phonestore").GetCollection<KhachHang>("KhachHang").InsertOne(KH);
+            return new JsonResult("Added Successfully");
         }
-
-        [HttpPut("edit/{id}")]
-        public async Task<ActionResult<KhachHang>> UpdateKhachHang(
-            [FromBody] KhachHang khachHang, [FromRoute] string id)
+        [HttpPut]
+        public JsonResult Put(KhachHang updateKH)
         {
-            var filter = Builders<KhachHang>.Filter.Eq("_id", id);
-            var result = await _khachHangCollection.ReplaceOneAsync(filter, khachHang);
-
-            if (result.ModifiedCount == 0)
-            {
-                return NotFound($"KhachHang not found with id: {id}");
-            }
-
-            return Ok(khachHang);
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var filter =Builders<KhachHang>.Filter.Eq("MaKH", updateKH.MaKH);
+            var updateDefinition = Builders<KhachHang>.Update
+             .Set(kh => kh.TenKH, updateKH.TenKH)
+             .Set(kh => kh.Sdt, updateKH.Sdt)
+             .Set(kh => kh.GioiTinh, updateKH.GioiTinh)
+             .Set(kh => kh.DiaChi, updateKH.DiaChi);
+            dbClient.GetDatabase("phonestore").GetCollection<KhachHang>("KhachHang").UpdateOne(filter, updateDefinition);
+            return new JsonResult("Updated Successfully");
         }
-
-        [HttpDelete("delete/{id}")]
-        public async Task<ActionResult> DeleteKhachHang([FromRoute] string id)
+        [HttpDelete("{id}")]
+        public JsonResult Delete(int id)
         {
-            var filter = Builders<KhachHang>.Filter.Eq("_id", id);
-            var result = await _khachHangCollection.DeleteOneAsync(filter);
-
-            if (result.DeletedCount == 0)
-            {
-                return NotFound($"KhachHang not found with id: {id}");
-            }
-
-            return NoContent();
-        }
-
-        [HttpGet("search/{id}")]
-        public async Task<ActionResult<KhachHang>> GetKhachHangById([FromRoute] string id)
-        {
-            var filter = Builders<KhachHang>.Filter.Eq("_id", id);
-            var khachHang = await _khachHangCollection.Find(filter).FirstOrDefaultAsync();
-
-            if (khachHang == null)
-            {
-                return NotFound($"KhachHang not found with id: {id}");
-            }
-
-            return Ok(khachHang);
-        }
-
-        [HttpGet("searchBySdt/{sdt}")]
-        public async Task<ActionResult<KhachHang>> GetKhachHangBySdt([FromRoute] string sdt)
-        {
-            var filter = Builders<KhachHang>.Filter.Eq("sdt", sdt);
-            var khachHang = await _khachHangCollection.Find(filter).FirstOrDefaultAsync();
-
-            if (khachHang == null)
-            {
-                return NotFound($"KhachHang not found with SDT: {sdt}");
-            }
-
-            return Ok(khachHang);
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var filter = Builders<KhachHang>.Filter.Eq("MaKH", id);
+            dbClient.GetDatabase("phonestore").GetCollection<KhachHang>("KhachHang").DeleteOne(filter); 
+            return new JsonResult("Deleted Successfully");
         }
     }
 }

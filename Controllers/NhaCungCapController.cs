@@ -1,65 +1,56 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using MongoDB.Driver;
 using Phonestore.Models;
 
 namespace Phonestore.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class NhaCungCapController : ControllerBase
+    public class NCCController : ControllerBase
     {
-        private static List<NhaCungCap> danhSachNhaCungCap = new List<NhaCungCap>();
-
-        [HttpGet("getAll")]
-        public List<NhaCungCap> GetAllNhaCungCaps()
+        private readonly IConfiguration _configuration;
+        public NCCController(IConfiguration configguration)
         {
-            return danhSachNhaCungCap;
+            _configuration = configguration;
         }
 
-        [HttpPost("save")]
-        public NhaCungCap SaveNhaCungCap([FromBody] NhaCungCap nhaCungCap)
+        [HttpGet]
+        public JsonResult GetAllNCC()
         {
-            nhaCungCap.Id = Guid.NewGuid().ToString(); // Tạo ID mới
-            danhSachNhaCungCap.Add(nhaCungCap);
-            return nhaCungCap;
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var dbList = dbClient.GetDatabase("phonestore").GetCollection<NhaCungCap>("NCC").AsQueryable();
+            return new JsonResult(dbList);
         }
-
-        [HttpPut("edit/{id}")]
-        public NhaCungCap UpdateNhaCungCap([FromBody] NhaCungCap nhaCungCap, string id)
+        [HttpPost]
+        public JsonResult Post(NhaCungCap ncc)
         {
-            var existingNhaCungCap = danhSachNhaCungCap.Find(ncc => ncc.Id == id);
-            if (existingNhaCungCap != null)
-            {
-                existingNhaCungCap.TenNhaCungCap = nhaCungCap.TenNhaCungCap;
-                // Cập nhật các trường khác
-                return existingNhaCungCap;
-            }
-            throw new Exception($"NhaCungCap not found with id: {id}");
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            int LastMaNcc = dbClient.GetDatabase("phonestore").GetCollection<NhaCungCap>("NCC").AsQueryable().Count();
+            ncc.MaNCC = LastMaNcc + 1;
+            dbClient.GetDatabase("phonestore").GetCollection<NhaCungCap>("NCC").InsertOne(ncc);
+            return new JsonResult("Added Successfully");
         }
-
-        [HttpDelete("delete/{id}")]
-        public void DeleteNhaCungCap(string id)
+        [HttpPut]
+        public JsonResult Put(NhaCungCap updateNcc)
         {
-            var nhaCungCapToRemove = danhSachNhaCungCap.Find(ncc => ncc.Id == id);
-            if (nhaCungCapToRemove != null)
-            {
-                danhSachNhaCungCap.Remove(nhaCungCapToRemove);
-            }
-            else
-            {
-                throw new Exception($"NhaCungCap not found with id: {id}");
-            }
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var filter=Builders<NhaCungCap>.Filter.Eq("MaNcc", updateNcc.MaNCC);
+            var updateDefinition = Builders<NhaCungCap>.Update
+             .Set(ncc => ncc.TenNCC, updateNcc.TenNCC)
+             .Set(ncc => ncc.Sdt, updateNcc.Sdt)
+             .Set(ncc => ncc.DiaChi, updateNcc.DiaChi);
+            dbClient.GetDatabase("phonestore").GetCollection<NhaCungCap>("Ncc").UpdateOne(filter,updateDefinition);
+            return new JsonResult("Updated Successfully");
         }
-
-        [HttpGet("search/{id}")]
-        public NhaCungCap GetNhaCungCap(string id)
+        [HttpDelete("{id}")]
+        public JsonResult Delete(int id)
         {
-            var nhaCungCap = danhSachNhaCungCap.Find(ncc => ncc.Id == id);
-            if (nhaCungCap != null)
-            {
-                return nhaCungCap;
-            }
-            throw new Exception($"NhaCungCap not found with id: {id}");
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var filter = Builders<NhaCungCap>.Filter.Eq("MaNcc", id);
+            dbClient.GetDatabase("phonestore").GetCollection<NhaCungCap>("NCC").DeleteOne(filter);
+            return new JsonResult("Deleted Successfully");
         }
     }
 }

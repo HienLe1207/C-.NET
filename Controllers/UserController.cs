@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using MongoDB.Driver;
 using Phonestore.Models;
 
 namespace Phonestore.Controllers
@@ -8,74 +10,50 @@ namespace Phonestore.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private static List<User> _users = new List<User>();
-
-        [HttpGet("getAll")]
-        public ActionResult<IEnumerable<User>> GetAllUsers()
+        private readonly IConfiguration _configuration;
+        public UserController(IConfiguration configguration)
         {
-            return Ok(_users);
+            _configuration = configguration;
         }
 
-        [HttpGet("GetById/{id}")]
-        public ActionResult<User> GetUserById(string id)
+        [HttpGet]
+        public JsonResult GetAllUser()
         {
-            var user = _users.Find(u => u.Id == id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(user);
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var dbList = dbClient.GetDatabase("phonestore").GetCollection<User>("User").AsQueryable();
+            return new JsonResult(dbList);
         }
-
-        [HttpPost("authenticate")]
-        public ActionResult<string> AuthenticateUser([FromBody] User user)
+        [HttpPost]
+        public JsonResult Post(User user)
         {
-            // Thực hiện logic xác thực người dùng tại đây
-            // Ví dụ đơn giản: Nếu tên người dùng là "admin" và mật khẩu là "admin", xác thực thành công
-            if (user.UserName == "admin" && user.Password == "admin")
-            {
-                return Ok("Authentication successful");
-            }
-
-            return Unauthorized("Authentication failed");
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            int LastMaUser = dbClient.GetDatabase("phonestore").GetCollection<User>("User").AsQueryable().Count();
+            user.MaUser = LastMaUser + 1;
+            dbClient.GetDatabase("phonestore").GetCollection<User>("User").InsertOne(user);
+            return new JsonResult("Added Successfully");
         }
-
-        [HttpPost("save")]
-        public ActionResult<string> SaveUser([FromBody] User user)
+        [HttpPut]
+        public JsonResult Put(User updateUser)
         {
-            // Thực hiện logic lưu người dùng vào danh sách tại đây
-            _users.Add(user);
-            return Ok(user.UserName);
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var filter = Builders<User>.Filter.Eq("MaUser", updateUser.MaUser);
+            var updateDefinition = Builders<User>.Update
+             .Set(user => user.ChucVu, updateUser.ChucVu)
+             .Set(user => user.TenUser, updateUser.TenUser)
+             .Set(user => user.Password, updateUser.Password)
+             .Set(user => user.DiaChi, updateUser.DiaChi)
+             .Set(user => user.Sdt, updateUser.Sdt)
+             .Set(user => user.GioiTinh, updateUser.GioiTinh);
+            dbClient.GetDatabase("phonestore").GetCollection<User>("User").UpdateOne(filter, updateDefinition);
+            return new JsonResult("Updated Successfully");
         }
-
-        [HttpPut("update/{id}")]
-        public ActionResult<User> UpdateUser(string id, [FromBody] User updatedUser)
+        [HttpDelete("{id}")]
+        public JsonResult Delete(int id)
         {
-            var existingUser = _users.Find(u => u.Id == id);
-            if (existingUser == null)
-            {
-                return NotFound();
-            }
-
-            // Thực hiện logic cập nhật thông tin người dùng tại đây
-            existingUser.UserName = updatedUser.UserName;
-            existingUser.Password = updatedUser.Password;
-
-            return Ok(existingUser);
-        }
-
-        [HttpDelete("delete/{id}")]
-        public IActionResult DeleteUser(string id)
-        {
-            var userToRemove = _users.Find(u => u.Id == id);
-            if (userToRemove == null)
-            {
-                return NotFound();
-            }
-
-            _users.Remove(userToRemove);
-            return NoContent();
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var filter = Builders<User>.Filter.Eq("MaUser", id);
+            dbClient.GetDatabase("phonestore").GetCollection<User>("User").DeleteOne(filter);
+            return new JsonResult("Deleted Successfully");
         }
     }
 }

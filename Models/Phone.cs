@@ -4,21 +4,21 @@ namespace Phonestore.Models
 {
     public class Phone
     {
-        public string Id { get; set; }
-        public string TenĐT { get; set; }
+        public ObjectId Id { get; set; }
+        public int MaPhone { get; set; }
+        public string TenPhone { get; set; }
         public string Loai { get; set; }
         public string MauSac { get; set; }
-        public NhaCungCap Ncc { get; set; }
-        public long Gia { get; set; }
+        public NhaCungCap nhacungcap { get; set; }
+        public long Price { get; set; }
         public DateTime ThoiGianMuaHang { get; set; }
         public Phone()
         {
-            Id = ObjectId.GenerateNewId().ToString();
-            TenĐT = string.Empty;
+           
+            TenPhone = string.Empty;
             Loai = string.Empty;
             MauSac= string.Empty;
-            Ncc = new NhaCungCap();
-            Gia = 0;
+            nhacungcap = new NhaCungCap();
             ThoiGianMuaHang = DateTime.Now;
 
         }

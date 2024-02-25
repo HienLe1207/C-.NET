@@ -7,15 +7,16 @@ namespace Phonestore.Models
 {
     public class NhaCungCap
     {
-        public string Id { get; set; }
-        public string TenNhaCungCap { get; set; }
+        public ObjectId Id { get; set; }
+        public int MaNCC { get; set; }
+        public string TenNCC { get; set; }
         public string Sdt { get; set; }
         public string DiaChi { get; set; }
 
         public NhaCungCap()
         {
-            Id = ObjectId.GenerateNewId().ToString();
-            TenNhaCungCap = string.Empty;
+           
+            TenNCC = string.Empty;
             Sdt = string.Empty;
             DiaChi = string.Empty;
         }

@@ -6,16 +6,17 @@ namespace Phonestore.Models
 {
     public class KhachHang
     {
-        public string Id { get; set; }
-        public string Ten { get; set; }
+        public ObjectId Id { get; set; }
+        public int MaKH { get; set; }
+        public string TenKH { get; set; }
         public string Sdt { get; set; }
         public string GioiTinh { get; set; }
         public string DiaChi { get; set; }
 
         public KhachHang()
         {
-            Id = ObjectId.GenerateNewId().ToString();
-            Ten = string.Empty;
+        
+            TenKH = string.Empty;
             Sdt = string.Empty;
             GioiTinh = string.Empty;
             DiaChi = string.Empty;

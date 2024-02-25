@@ -1,37 +1,45 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Phonestore.Models;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System;
-using System.Collections.Generic;
+using MongoDB.Driver;
+using Phonestore.Models;
 
-[Route("api/[controller]")]
-[ApiController]
-public class OrderController : ControllerBase
+namespace Phonestore.Controllers
 {
-    private static List<Order> _orders = new List<Order>();
-
-    [HttpPost("save")]
-    public ActionResult<Order> SubmitOrder([FromBody] Order order)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class OrderController : ControllerBase
     {
-        // Thêm thời gian hiện tại khi tạo đối tượng Order
-        order.ThoiGianDatHang = DateTime.Now;
-        SaveOrder(order);
-        return Ok(order);
-    }
+        private readonly IConfiguration _configuration;
+        public OrderController(IConfiguration configguration)
+        {
+            _configuration = configguration;
+        }
 
-    [HttpGet("getAll")]
-    public ActionResult<List<Order>> GetAllOrders()
-    {
-        var orders = ListAll();
-        return Ok(orders);
-    }
-
-    private static void SaveOrder(Order order)
-    {
-        _orders.Add(order);
-    }
-
-    private static List<Order> ListAll()
-    {
-        return _orders;
+        [HttpGet]
+        public JsonResult GetAllNCC()
+        {
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var dbList = dbClient.GetDatabase("phonestore").GetCollection<Order>("Order").AsQueryable();
+            return new JsonResult(dbList);
+        }
+        [HttpPost]
+        public JsonResult Post(Order order)
+        {
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            int LastMaDonHang = dbClient.GetDatabase("phonestore").GetCollection<Order>("Order").AsQueryable().Count();
+            order.MaDonHang = LastMaDonHang + 1;
+            dbClient.GetDatabase("phonestore").GetCollection<Order>("Order").InsertOne(order);
+            return new JsonResult("Added Successfully");
+        }
+        
+        [HttpDelete("{id}")]
+        public JsonResult Delete(int id)
+        {
+            MongoClient dbClient = new MongoClient(_configuration.GetConnectionString("PhoneStoreApp"));
+            var filter = Builders<Order>.Filter.Eq("MaDonHang", id);
+            dbClient.GetDatabase("phonestore").GetCollection<Order>("Order").DeleteOne(filter);
+            return new JsonResult("Deleted Successfully");
+        }
     }
 }
